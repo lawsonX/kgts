@@ -1,0 +1,41 @@
+# Minimal seed config skeleton for a small Chinese legal-domain run
+# (offline, mock LLM). style.language is "zh": questions, answers and
+# reject-sample texts are generated in Chinese.
+
+run:
+  name: legal_small
+  workdir: .kgts-legal
+  seed: 42
+
+seeds:
+  - label: 民法
+    description: "调整平等主体之间人身关系和财产关系的法律部门。"
+    children: [合同法, 侵权责任]
+  - label: 刑法
+    description: "规定犯罪与刑罚的法律部门。"
+    children: [犯罪构成, 刑罚裁量]
+  - label: 行政法
+    description: "规范行政机关行使职权的法律部门。"
+    children: [行政处罚, 行政复议, 行政许可]
+
+llm:
+  model: mock
+  cache: false
+
+budget:
+  max_llm_calls: 500
+  max_nodes: 100
+
+retrieve:
+  sources: [local]
+  local: {paths: ["./corpus"], chunk_size: 800, chunk_overlap: 100}
+
+sample:
+  n_samples: 12
+
+synthesize:
+  style: {language: zh, length: medium, difficulty: mixed}
+
+export:
+  formats: [sft, rl]
+  out_dir: ./output

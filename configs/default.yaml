@@ -1,0 +1,76 @@
+# KGTS default configuration (design doc appendix A: full schema).
+#
+# Dev-safe defaults: llm.model is "mock", so a fresh clone runs the whole
+# pipeline offline (deterministic MockLLM, no API key needed). Point
+# llm.model at any LiteLLM-supported OpenAI-compatible endpoint for real runs.
+
+run:
+  name: default
+  workdir: .kgts/                 # root for SQLite stores, LLM cache, checkpoints
+  seed: 42                        # global seed for sampling and randomness
+
+seeds: []                         # coarse human-given seeds (design section 4.3);
+                                  # see configs/seeds/*.yaml for ready-made examples
+                                  # (cs_small / medical_small / legal_small)
+  # - label: Computer Science
+  #   description: "..."
+  #   children: [AI, Systems, Theory]   # human-given first layer (coordinate frame)
+
+llm:
+  model: mock                     # "mock*" -> offline MockLLM; otherwise LiteLLM model name
+  cheap_model: null               # smaller model for explore under --cheap-mode
+  api_base: null                  # custom OpenAI-compatible endpoint, if any
+  rpm: 60                         # rate limit (requests per minute); null disables throttling
+  cache: true                     # on-disk LLM reply cache, reused across runs (section 4.3)
+
+budget:
+  max_llm_calls: 2000             # global hard cap on LLM calls (null = unlimited)
+  max_cost_usd: 10.0              # informational budget cap
+  max_nodes: 200                  # graph expansion node cap
+  max_explore_rounds: 4           # per-node exploration rounds (recommended 3-5)
+
+build:                            # Stage A: knowledge DAG expansion
+  align:
+    recall_top_k: 8               # embedding recall candidates for the aligner
+    embed_threshold: 0.75         # below this similarity: judge DISTINCT without an LLM call
+  atomicity:
+    min_materials: 5              # material sufficiency signal
+    min_synth_success: 0.7        # synthesizability signal (trial synthesis of k tasks)
+    synth_trials: 3
+    max_child_material_overlap: 0.5   # marginal-benefit signal for further subdivision
+  max_parents: 3                  # beyond this the node goes to the human review queue
+
+sample:                           # Stage B: bundle sampling over the DAG
+  mixture: {breadth: 0.2, depth: 0.6, joint: 0.2}
+  n_samples: 20                   # small default so a fresh clone demo runs fast
+  quotas:
+    min_node_coverage: 1          # each samplable node is picked at least this often
+    max_per_node: 20              # per-node pick cap within one run
+    long_tail_alpha: 1.0          # inverse-frequency weight: p ~ 1/(1 + alpha * hits)
+  joint: {k_hop: 2, max_group_size: 4}
+  prioritizer: inverse_frequency  # inverse_frequency | ece (plugin)
+
+retrieve:                         # Stage C: material retrieval per bundle
+  sources: [local]                # local | web | github | arxiv (web needs TAVILY_API_KEY)
+  per_node_materials: 8           # material pool water level per node
+  web: {provider: tavily, api_key_env: TAVILY_API_KEY}
+  local: {paths: [./corpus], chunk_size: 800, chunk_overlap: 100}
+  postprocess:
+    dedup: simhash                # simhash | url | off
+    rerank: none                  # cross_encoder | llm | none (offline default: none)
+    license_mode: whitelist       # web materials default to license whitelist (section 12.3)
+
+synthesize:                       # Stage D: task synthesis
+  task_types: [atomic_qa, aggregated_qa, multihop_qa,
+               grounded_summary, comparative_analysis]
+  type_weights: {}                # empty = uniform
+  style: {language: zh, length: medium, difficulty: mixed}
+  insufficient_material: reject_sample   # reject_sample | drop
+
+verify:                           # Stage E: task-level verification
+  fallback: rubric_judge          # fallback when a task type has no dedicated verifier
+  rubric_judge: {model: null, pass_score: 0.7}   # model null = reuse llm.model
+
+export:
+  formats: [sft, rl]              # SFT = messages; RL = task + rubric + env
+  out_dir: ./output

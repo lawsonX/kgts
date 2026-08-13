@@ -1,0 +1,45 @@
+# Minimal seed config for a small offline Computer Science run.
+# Usage: kgts run --config configs/seeds/cs_small.yaml
+# (or see examples/quickstart_offline.py, which loads this file directly).
+#
+# llm.model is "mock" so this runs fully offline; the MockLLM returns empty
+# candidate lists, so the graph stays at seeds + the human-given first layer.
+# The local corpus path matches the demo corpus in examples/corpus/.
+
+run:
+  name: cs_small
+  workdir: .kgts-cs
+  seed: 42
+
+seeds:
+  - label: Machine Learning
+    description: "Algorithms that learn predictive models from data."
+    children: [Neural Networks, Gradient Descent, Model Evaluation]
+  - label: Operating Systems
+    description: "Software that manages hardware resources and runs programs."
+    children: [Process Scheduling, Memory Management]
+  - label: Databases
+    description: "Systems for structured storage and querying of data."
+    children: [Relational Algebra, Query Optimization, Transactions]
+
+llm:
+  model: mock
+  cache: false                    # offline demo: nothing worth caching
+
+budget:
+  max_llm_calls: 500
+  max_nodes: 100
+
+retrieve:
+  sources: [local]
+  local: {paths: ["examples/corpus"], chunk_size: 800, chunk_overlap: 100}
+
+sample:
+  n_samples: 12
+
+synthesize:
+  style: {language: en, length: medium, difficulty: mixed}
+
+export:
+  formats: [sft, rl]
+  out_dir: ./output

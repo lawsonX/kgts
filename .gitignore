@@ -1,0 +1,24 @@
+# python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# kgts runtime artifacts
+.kgts/
+.kgts-*/
+output/
+corpus/
+examples/output/
+
+# misc
+.DS_Store
+.idea/
+.vscode/
+*.log

@@ -1,0 +1,55 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kgts"
+version = "0.1.0"
+description = "Knowledge-Graph-Guided Task Synthesis: use a knowledge DAG as the control plane for synthetic training data"
+readme = "README.md"
+license = { text = "Apache-2.0" }
+requires-python = ">=3.11"
+authors = [{ name = "KGTS contributors" }]
+keywords = ["knowledge-graph", "synthetic-data", "llm", "task-synthesis"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "networkx>=3.0",
+    "pydantic>=2.0",
+    "pyyaml>=6.0",
+    "typer>=0.9",
+]
+
+[project.optional-dependencies]
+llm = ["litellm>=1.40"]
+ui = ["gradio>=4.0"]
+dev = ["pytest>=7.4", "ruff>=0.4"]
+all = ["kgts[llm,ui,dev]"]
+
+[project.scripts]
+kgts = "kgts.cli:app"
+
+[project.urls]
+Homepage = "https://github.com/kgts-project/kgts"
+Documentation = "https://github.com/kgts-project/kgts/tree/main/docs"
+
+[tool.setuptools.packages.find]
+include = ["kgts*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]

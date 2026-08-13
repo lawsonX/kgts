@@ -1,0 +1,41 @@
+# Minimal seed config skeleton for a small medical-domain run (offline, mock LLM).
+# Copy and extend: give the explorer real candidates by switching llm.model to
+# a real endpoint, and point retrieve.local.paths at your own corpus.
+
+run:
+  name: medical_small
+  workdir: .kgts-medical
+  seed: 42
+
+seeds:
+  - label: Cardiology
+    description: "Diagnosis and treatment of heart disorders."
+    children: [Hypertension, Cardiac Arrhythmia]
+  - label: Pharmacology
+    description: "How drugs act on the body and how the body processes drugs."
+    children: [Drug Metabolism, Adverse Drug Reactions]
+  - label: Epidemiology
+    description: "Distribution and determinants of disease in populations."
+    children: [Incidence and Prevalence, Outbreak Investigation]
+
+llm:
+  model: mock
+  cache: false
+
+budget:
+  max_llm_calls: 500
+  max_nodes: 100
+
+retrieve:
+  sources: [local]
+  local: {paths: ["./corpus"], chunk_size: 800, chunk_overlap: 100}
+
+sample:
+  n_samples: 12
+
+synthesize:
+  style: {language: en, length: medium, difficulty: mixed}
+
+export:
+  formats: [sft, rl]
+  out_dir: ./output
