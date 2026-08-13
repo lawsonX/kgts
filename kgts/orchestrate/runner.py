@@ -174,9 +174,16 @@ def stage_synthesize(config: Config, *, llm=None, resume: bool = True) -> list[T
     return existing + new_tasks
 
 
-def stage_verify(config: Config, *, llm=None, resume: bool = True) -> list[Task]:
-    """Stage E (task-level): verify synthesized tasks; idempotent on resume."""
-    tasks = stage_synthesize(config, llm=llm, resume=resume)
+def stage_verify(
+    config: Config, *, llm=None, resume: bool = True, tasks: list[Task] | None = None
+) -> list[Task]:
+    """Stage E (task-level): verify synthesized tasks; idempotent on resume.
+
+    ``tasks`` may be passed in by ``run_pipeline`` to avoid re-entering
+    ``stage_synthesize`` (which would duplicate work when ``resume=False``).
+    """
+    if tasks is None:
+        tasks = stage_synthesize(config, llm=llm, resume=resume)
     pending = [t for t in tasks if not resume or t.verify_result == VerifyResult.UNVERIFIED]
     if not pending:
         return tasks

@@ -152,7 +152,9 @@ def test_expand_graph_end_to_end():
     assert store.find("Biology").level == 0
     algo = store.find("Algorithms")
     assert algo.description == "Study of algorithms."
-    assert algo.stats.n_materials == 3
+    # the explorer's material_estimate is an LLM self-report and must NOT be
+    # trusted into node stats (real runs showed inflated values like 50000)
+    assert algo.stats.n_materials == 0
     for label in ("Sorting", "Graph Algorithms"):
         child = store.find(label)
         assert child is not None and child.level == 2

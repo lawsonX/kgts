@@ -204,3 +204,24 @@ def test_retriever_reraises_when_all_sources_fail(monkeypatch):
     cfg = RetrieveConfig(sources=["web"])
     with pytest.raises(RuntimeError, match="TAVILY_API_KEY"):
         Retriever(build_sources(cfg), cfg).retrieve(store, bundle)
+
+
+# ------------------------------------------------------------------ CJK
+def test_tokenize_cjk_unigrams_and_bigrams():
+    from kgts.retrieve.text import tokenize
+
+    tokens = tokenize("经济学研究资源配置")
+    assert "经" in tokens and "经济" in tokens and "配置" in tokens
+    # mixed text keeps ascii words too
+    assert "gdp" in tokenize("GDP 衡量总产出")
+
+
+def test_local_corpus_chinese_retrieval(tmp_path):
+    """Regression: Chinese corpus must be retrievable (was broken by the
+    ASCII-only tokenizer: CJK text produced zero tokens -> zero materials)."""
+    (tmp_path / "econ.txt").write_text("经济学研究稀缺资源如何配置。供给与需求决定价格。")
+    (tmp_path / "phys.txt").write_text("物理学研究物质与能量。牛顿三定律是经典力学基础。")
+    src = LocalCorpusSource(LocalSourceConfig(paths=[str(tmp_path)], chunk_size=200))
+    hits = src.search(["人文社科 经济学"], budget=3)
+    assert hits, "Chinese query should retrieve the economics chunk"
+    assert "经济" in hits[0].text

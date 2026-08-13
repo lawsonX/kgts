@@ -7,18 +7,16 @@ and a pure-python relevance rerank against the node description.
 from __future__ import annotations
 
 import hashlib
-import re
 import urllib.parse
 
 from kgts.models import Material, SourceType
-
-_TOKEN_RE = re.compile(r"[a-z0-9]+")
+from kgts.retrieve.text import tokenize
 
 _LICENSE_WHITELIST = {None, "unknown", "cc-by", "cc0", "public-domain", "mit", "apache-2.0"}
 
 
 def _tokens(text: str) -> list[str]:
-    return _TOKEN_RE.findall(text.lower())
+    return tokenize(text)
 
 
 def simhash64(text: str) -> int:

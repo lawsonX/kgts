@@ -1,0 +1,61 @@
+# 通用知识领域示例（中文）。默认 model: mock 可离线运行；
+# 接真实端点时把 llm 段改成你的 OpenAI 兼容端点即可，例如：
+#   llm:
+#     model: openai/<your-model>          # openai/ 前缀 = 自定义 OpenAI 兼容端点
+#     api_base: https://your-endpoint/v1  # 密钥走环境变量 OPENAI_API_KEY，勿写入本文件
+#     rpm: 36
+run:
+  name: general_small
+  workdir: .kgts-general
+  seed: 42
+
+seeds:
+  - label: 自然科学
+    description: 研究自然界的物质、生命与规律
+    children: [物理学, 生命科学]
+  - label: 人文社科
+    description: 研究人类社会、历史与经济运行
+    children: [世界历史, 经济学]
+  - label: 日常生活
+    description: 与日常生活直接相关的实用知识
+    children: [营养学, 心理学]
+
+llm:
+  model: mock
+  rpm: 36
+  cache: true
+
+budget:
+  max_llm_calls: 400
+  max_nodes: 40
+  max_explore_rounds: 2
+
+build:
+  align:
+    recall_top_k: 8
+    embed_threshold: 0.75
+  atomicity:
+    min_materials: 2        # 示例用小语料，阈值调低；生产建议 >= 5
+    min_synth_success: 0.7
+    synth_trials: 3
+    max_child_material_overlap: 0.5
+  max_parents: 3
+
+sample:
+  mixture: {breadth: 0.3, depth: 0.4, joint: 0.3}
+  n_samples: 10
+
+retrieve:
+  sources: [local]
+  per_node_materials: 6
+  local:
+    paths: ["examples/corpus_zh"]
+    chunk_size: 400
+    chunk_overlap: 80
+
+synthesize:
+  style: {language: zh, length: medium, difficulty: mixed}
+
+export:
+  formats: [sft, rl]
+  out_dir: ./output-general

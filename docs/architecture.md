@@ -111,13 +111,19 @@ invariants:
 - `atomicity.py` `AtomicityJudge.is_atomic(node)`: three signals from
   `node.stats` (materials, synth success, child overlap) + `DEPTH_CAP = 6`.
 - `expand.py` `expand_graph(...)`: queue-driven loop —
-  `explore → align each candidate → commit → atomicity check`; seeds and
-  their human-given first layer initialize the queue. `BudgetExceeded`
-  stops the loop gracefully; any other per-node error is recorded in
-  `store.review_flags` and the loop continues. Commit applies verdicts:
-  `EQUIVALENT` folds the label into the matched node's aliases; `RELATED`
-  adds an `is_related` edge; `DISTINCT` creates the node and attaches it
-  under `max_parents` + cycle guards.
+  `atomicity gate → explore → align each candidate → commit`; seeds and
+  their human-given first layer initialize the queue. Committed children
+  are always enqueued (an atomic verdict never orphans them); nodes whose
+  exploration yields no new children become `ATOMIC`; fan-out is capped by
+  `build.max_children_per_node` (default 6) and the node budget is also
+  checked inside the commit batch. The explorer's `material_estimate` is an
+  untrusted LLM self-report and is never written into `node.stats` — the
+  material signal only counts materials actually retrieved by Stage C.
+  `BudgetExceeded` stops the loop gracefully; any other per-node error is
+  recorded in `store.review_flags` and the loop continues. Commit applies
+  verdicts: `EQUIVALENT` folds the label into the matched node's aliases;
+  `RELATED` adds an `is_related` edge; `DISTINCT` creates the node and
+  attaches it under `max_parents` + cycle guards.
 
 ### `kgts/sample/` — Stage B
 
@@ -143,6 +149,9 @@ invariants:
   stdlib-only. `build_sources()` instantiates from `retrieve.sources`.
 - `postprocess.py` — license whitelist, dedup (URL normalization or
   simhash), token-overlap rerank against node descriptions.
+- `text.py` — shared tokenizer for all retrieval scoring: ASCII words plus
+  CJK character unigrams/bigrams. (An earlier ASCII-only tokenizer made
+  Chinese corpora retrieve nothing; keep every scorer on this one tokenizer.)
 - `retriever.py` `Retriever.retrieve(store, bundle)`: per node × per
   source query fan-out; if every source raised, the first error is
   re-raised (no silent empty results); results are license-filtered,

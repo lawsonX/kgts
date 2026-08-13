@@ -10,7 +10,6 @@ from __future__ import annotations
 import json
 import math
 import os
-import re
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -21,12 +20,11 @@ from typing import Protocol
 
 from kgts.config import LocalSourceConfig, RetrieveConfig, WebSourceConfig
 from kgts.models import Material, SourceType
-
-_TOKEN_RE = re.compile(r"[a-z0-9]+")
+from kgts.retrieve.text import tokenize
 
 
 def _tokens(text: str) -> list[str]:
-    return _TOKEN_RE.findall(text.lower())
+    return tokenize(text)
 
 
 class MaterialSource(Protocol):

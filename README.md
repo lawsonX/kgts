@@ -1,19 +1,42 @@
 # KGTS — Knowledge-Graph-Guided Task Synthesis
 
+[English](README.md) | [简体中文](README.zh-CN.md)
+
 [![CI](https://github.com/kgts-project/kgts/actions/workflows/ci.yml/badge.svg)](https://github.com/kgts-project/kgts/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Python >=3.11](https://img.shields.io/badge/python-%3E%3D3.11-blue.svg)](https://www.python.org/)
 
+KGTS builds synthetic training data for large language models, starting from
+a knowledge graph instead of a pile of documents. It is for ML engineers and
+researchers who need grounded, verifiable training tasks (for SFT or RL)
+with full traceability back to source material. It is not another GraphRAG
+or doc2qa tool: those extract a graph or generate QA pairs from text; KGTS
+uses the graph to *plan* what data to create, then retrieves material and
+synthesizes tasks against that plan.
+
+## What it does
+
 KGTS is an open-source implementation of the knowledge-graph-guided task
-synthesis pipeline described in the Kimi K3 technical report (Moonshot AI):
-an agent recursively expands a concept DAG from a handful of coarse seeds,
-a sampler schedules node and node-group picks over that DAG, a retriever
-anchors each pick to real materials using ancestor-path-disambiguated
-queries, pluggable task types synthesize grounded training tasks, and
-verifiers plus a dataset-level report close the loop. The core idea KGTS
-productizes is **the knowledge graph as the control plane for data
-synthesis** — the graph decides *what* to synthesize and *what* to retrieve;
-how each task is generated is a plugin concern.
+synthesis pipeline described in the Kimi K3 technical report (Moonshot AI).
+The pipeline has five stages:
+
+1. An agent grows a concept DAG (a directed acyclic graph — a tree-like
+   structure of concepts, from coarse topics down to fine subtopics),
+   starting from a handful of human-given seeds.
+2. A sampler picks nodes and node groups from that graph, so you control
+   which parts of the concept space get turned into data.
+3. A retriever finds real source material (web pages, local files, GitHub,
+   arXiv) for each pick. Its search queries include the node's path from
+   the root, so ambiguous terms are resolved by context.
+4. Pluggable task types turn each pick plus its materials into a training
+   task (a question, a summary, a comparison, ...).
+5. Verifiers check the tasks, and a dataset-level report measures coverage,
+   duplication, diversity, and provenance.
+
+The core idea KGTS productizes is **the knowledge graph as the control
+plane for data synthesis** — "control plane" meaning the part that decides
+*what* to do, not *how* to do it. The graph decides what to synthesize and
+what to retrieve; how each task is generated is a plugin concern.
 
 ## Why KGTS
 
@@ -28,18 +51,21 @@ cover all of it:
 | HippoRAG 2 / LightRAG | subgraph-anchored retrieval | built for QA, not for data scheduling |
 | AgentInstruct | agentic synthesis flows | paper only, no open code |
 
-KGTS is not another GraphRAG and not another doc2qa tool. Its differentiators:
+KGTS's differentiators:
 
-- **Recursive agentic DAG construction** — explore → align → commit →
-  atomicity-check, queue-driven until the budget runs out.
-- **Schedulable sampling** — breadth / depth / joint operators with
-  long-tail (inverse-frequency) weighting, over a hierarchical DAG.
+- **Recursive agentic DAG construction** — the agent loops over a work
+  queue (atomicity-check → explore → align → commit) until the LLM-call
+  budget runs out.
+- **Schedulable sampling** — breadth / depth / joint sampling operators
+  with long-tail weighting (rare nodes get picked more often, inversely to
+  their frequency), over a hierarchical DAG.
 - **Ancestor-context retrieval** — queries are disambiguated by the node's
   path from the root, per material source (web / local / GitHub / arXiv).
 - **Task-type plugins** — synthesis is decoupled from the graph; every task
   type declares its material requirements, generator, and verifier.
-- **Full provenance** — every exported example traces back
-  `Task → SampleBundle → Node → Material → Run → config_hash`.
+- **Full provenance** (lineage) — every exported example traces back
+  `Task → SampleBundle → Node → Material → Run → config_hash`, so you can
+  always answer "where did this training row come from?"
 
 ## Architecture
 
@@ -75,6 +101,9 @@ KGTS is not another GraphRAG and not another doc2qa tool. Its differentiators:
                   ui/ (Gradio workdir viewer)
 ```
 
+SFT (supervised fine-tuning) and RL (reinforcement learning) are the two
+training setups the export formats target.
+
 ## Install
 
 ```bash
@@ -99,8 +128,8 @@ Requires Python 3.11+.
 ### Offline demo (no API key)
 
 `examples/quickstart_offline.py` runs the whole pipeline — seeds → graph →
-bundles → materials → tasks → report — against `MockLLM` and a local toy
-corpus, fully offline and deterministic:
+bundles → materials → tasks → report — against `MockLLM` (a fake LLM for
+testing) and a local toy corpus, fully offline and deterministic:
 
 ```bash
 python examples/quickstart_offline.py
@@ -108,8 +137,9 @@ python examples/quickstart_offline.py
 
 ### Real run
 
-1. Define coarse seeds (the human-given coordinate system; the first layer
-   under each seed is given, not auto-generated). Example seed configs:
+1. Define coarse seeds. Seeds are the human-given coordinate system: the
+   first layer of concepts under each seed is written by you, not
+   auto-generated. Example seed configs:
    `configs/seeds/cs_small.yaml`, `configs/seeds/medical_small.yaml`,
    `configs/seeds/legal_small.yaml`.
 2. Point `llm.model` in your config at any OpenAI-compatible endpoint
@@ -126,7 +156,8 @@ python examples/quickstart_offline.py
    ```
 
    Start from `configs/default.yaml`, which documents every field.
-3. Run the pipeline (per-stage checkpoints; re-running resumes):
+3. Run the pipeline. Each stage saves a checkpoint, so re-running resumes
+   where it left off instead of starting over:
 
    ```bash
    kgts run --config configs/seeds/cs_small.yaml

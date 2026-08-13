@@ -53,6 +53,7 @@ class BuildConfig(BaseModel):
     align: AlignConfig = Field(default_factory=AlignConfig)
     atomicity: AtomicityConfig = Field(default_factory=AtomicityConfig)
     max_parents: int = 3
+    max_children_per_node: int = 6  # fan-out cap: LLMs happily list 20+ subfields
 
 
 class SampleQuotas(BaseModel):

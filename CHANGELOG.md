@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- `README.zh-CN.md` (Simplified Chinese) and a plainer English README.
+- General-knowledge (Chinese) example: `configs/seeds/general_small.yaml`
+  + `examples/corpus_zh/`.
+- `build.max_children_per_node` config (default 6) to cap expansion fan-out.
+
+### Fixed (found by debugging against a real LLM endpoint, DeepSeek-V4-Flash)
+- Expansion loop: atomicity is now judged **before** exploration, so an
+  atomic verdict can no longer orphan already-committed children; nodes
+  whose exploration yields no new candidates become `ATOMIC`.
+- The explorer's `material_estimate` (an LLM self-report; observed values
+  like 50000) is no longer written into `node.stats.n_materials` — the
+  material-sufficiency signal only counts materials actually retrieved.
+- Node budget is now also enforced inside the per-node commit batch.
+- Retrieval scoring now uses a CJK-aware tokenizer (ASCII-only tokenization
+  made Chinese corpora retrieve nothing, producing only reject samples).
+- `run_pipeline(resume=False)` no longer synthesizes every bundle twice
+  (stage re-entry through `stage_verify`).
+
 ## [0.1.0] - 2026-08-13
 
 Initial public release. Implements the v0.1–v0.3 scope of the design:
