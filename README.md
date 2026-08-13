@@ -59,6 +59,10 @@ KGTS's differentiators:
 - **Schedulable sampling** — breadth / depth / joint sampling operators
   with long-tail weighting (rare nodes get picked more often, inversely to
   their frequency), over a hierarchical DAG.
+- **Agentic input compatibility** — a CorpusAdapterAgent inspects samples
+  from any local corpus, infers a declarative extraction spec (verified on
+  real records, cached, human-editable), so new data formats need no code
+  changes.
 - **Ancestor-context retrieval** — queries are disambiguated by the node's
   path from the root, per material source (web / local / GitHub / arXiv).
 - **Task-type plugins** — synthesis is decoupled from the graph; every task

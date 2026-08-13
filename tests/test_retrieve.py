@@ -1,4 +1,7 @@
+
 """Offline tests for Stage C (retrieve). No network access."""
+
+import json
 
 import pytest
 
@@ -225,3 +228,32 @@ def test_local_corpus_chinese_retrieval(tmp_path):
     hits = src.search(["人文社科 经济学"], budget=3)
     assert hits, "Chinese query should retrieve the economics chunk"
     assert "经济" in hits[0].text
+
+
+def test_local_corpus_jsonl_ocr_and_text_fields(tmp_path):
+    """OCR-dump jsonl ({"ocr": {pos: text}}) and plain {"text": ...} jsonl must
+    be parsed for content, not chunked as raw JSON syntax."""
+    ocr_line = json.dumps(
+        {"filename": "book_0.pdf", "ocr": {"0_text_2": "", "0_text_1": "现场勘查保护现场"}},
+        ensure_ascii=False,
+    )
+    (tmp_path / "ocr.jsonl").write_text(ocr_line + "\n" + "{not json}\n")
+    (tmp_path / "plain.jsonl").write_text(
+        json.dumps({"text": "视频侦查利用监控录像追踪嫌疑人"}, ensure_ascii=False) + "\n"
+    )
+    src = LocalCorpusSource(LocalSourceConfig(paths=[str(tmp_path)], chunk_size=500))
+    hits = src.search(["现场勘查"], budget=5)
+    assert hits and "现场勘查" in hits[0].text
+    assert '"ocr"' not in hits[0].text  # content extracted, not raw JSON
+    hits2 = src.search(["视频侦查"], budget=5)
+    assert hits2 and "监控录像" in hits2[0].text
+
+
+def test_web_source_verify_ssl_opt_out():
+    import ssl
+
+    with pytest.warns(UserWarning, match="verify_ssl"):
+        src = WebSearchSource(WebSourceConfig(), verify_ssl=False)
+    assert src._ssl_context.verify_mode == ssl.CERT_NONE
+    strict = WebSearchSource(WebSourceConfig())
+    assert strict._ssl_context is None  # default stays fully verified

@@ -146,9 +146,16 @@ invariants:
 - `sources.py` — `MaterialSource` protocol and four built-ins
   (`LocalCorpusSource` pure-python TF-IDF over chunked .txt/.md/.jsonl;
   `WebSearchSource` Tavily via urllib; `GitHubSource`; `ArxivSource`), all
-  stdlib-only. `build_sources()` instantiates from `retrieve.sources`.
+  stdlib-only. HTTP sources share `_make_ssl_context(verify_ssl)` (config `retrieve.verify_ssl`) for TLS-inspecting proxies. `build_sources()` instantiates from `retrieve.sources`.
 - `postprocess.py` — license whitelist, dedup (URL normalization or
   simhash), token-overlap rerank against node descriptions.
+- `ingest.py` — CorpusAdapterAgent (agentic input compatibility): samples
+  the corpus (one file per extension, binaries skipped), has the LLM infer a
+  declarative `ExtractionSpec`, verifies it on real records with one
+  self-correction round, and caches it to `workdir/corpus_spec.json`;
+  `LocalCorpusSource(spec=...)` then accepts any file format. The spec
+  interpreter is container-tolerant on `text_fields` (dict/list values are
+  joined) because LLMs routinely confuse field kinds.
 - `text.py` — shared tokenizer for all retrieval scoring: ASCII words plus
   CJK character unigrams/bigrams. (An earlier ASCII-only tokenizer made
   Chinese corpora retrieve nothing; keep every scorer on this one tokenizer.)

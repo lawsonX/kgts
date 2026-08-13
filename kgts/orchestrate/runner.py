@@ -125,9 +125,14 @@ def stage_sample(config: Config, *, resume: bool = True) -> tuple[GraphStore, li
 
 
 def stage_retrieve(
-    config: Config, *, resume: bool = True
+    config: Config, *, llm=None, resume: bool = True
 ) -> tuple[GraphStore, list[SampleBundle], dict[str, Material]]:
-    """Stage C: retrieve materials per bundle (checkpoint: materials.json)."""
+    """Stage C: retrieve materials per bundle (checkpoint: materials.json).
+
+    When the local source is enabled with ``local.adapter == "auto"``, the
+    CorpusAdapterAgent first infers (or loads the cached) ExtractionSpec for
+    the corpus — this is the agentic input-compatibility layer.
+    """
     store, bundles = stage_sample(config, resume=resume)
     path = Path(config.run.workdir) / "materials.json"
     if resume and path.exists():
@@ -136,7 +141,10 @@ def stage_retrieve(
         from kgts.retrieve.retriever import Retriever
         from kgts.retrieve.sources import build_sources
 
-        retriever = Retriever(build_sources(config.retrieve), config.retrieve)
+        local_spec = _local_spec(config, llm=llm, resume=resume)
+        retriever = Retriever(
+            build_sources(config.retrieve, local_spec=local_spec), config.retrieve
+        )
         by_id: dict[str, Material] = {}
         for bundle in bundles:
             for m in retriever.retrieve(store, bundle):
@@ -145,6 +153,30 @@ def stage_retrieve(
         path.write_text(json.dumps([m.model_dump() for m in materials], ensure_ascii=False))
     artifacts_of(config).save_materials(materials)
     return store, bundles, {m.id: m for m in materials}
+
+
+def corpus_spec_path(config: Config) -> Path:
+    return Path(config.run.workdir) / "corpus_spec.json"
+
+
+def _local_spec(config: Config, *, llm=None, resume: bool = True):
+    """Infer (or load the cached) ExtractionSpec for the local corpus."""
+    if "local" not in config.retrieve.sources:
+        return None
+    if config.retrieve.local.adapter != "auto":
+        return None
+    path = corpus_spec_path(config)
+    if resume and path.exists():
+        from kgts.retrieve.ingest import ExtractionSpec
+
+        return ExtractionSpec.model_validate_json(path.read_text())
+    from kgts.retrieve.ingest import analyze_corpus
+
+    llm = llm or make_llm(config, Path(config.run.workdir))
+    spec = analyze_corpus(config.retrieve.local.paths, llm)
+    if spec is not None:
+        path.write_text(spec.model_dump_json())
+    return spec
 
 
 def stage_synthesize(config: Config, *, llm=None, resume: bool = True) -> list[Task]:
@@ -258,7 +290,7 @@ def run_pipeline(
     if "sample" in stages:
         stage_sample(config, resume=resume)
     if "retrieve" in stages:
-        stage_retrieve(config, resume=resume)
+        stage_retrieve(config, llm=llm, resume=resume)
     if "synthesize" in stages:
         tasks = stage_synthesize(config, llm=llm, resume=resume)
         run.stage_stats["n_tasks_synthesized"] = len(tasks)

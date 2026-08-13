@@ -8,10 +8,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **CorpusAdapterAgent** (`kgts/retrieve/ingest.py`): agentic input-data
+  compatibility — samples any local corpus, infers a declarative
+  `ExtractionSpec` via LLM, verifies it on real records with one
+  self-correction round, caches it to `workdir/corpus_spec.json`, falls back
+  to built-in heuristics. No LLM-generated code is ever executed.
+  New CLI: `kgts ingest --config C [--save]`; new config:
+  `retrieve.local.adapter: auto|heuristic`.
+- `retrieve.verify_ssl` config (default `true`) for HTTP material sources —
+  the documented escape hatch behind TLS-inspecting corporate proxies.
 - `README.zh-CN.md` (Simplified Chinese) and a plainer English README.
 - General-knowledge (Chinese) example: `configs/seeds/general_small.yaml`
   + `examples/corpus_zh/`.
 - `build.max_children_per_node` config (default 6) to cap expansion fan-out.
+- Local corpus: `.jsonl` heuristic parsing (text/content/body fields, OCR
+  dict dumps), chunk cosine norms precomputed at index time.
 
 ### Fixed (found by debugging against a real LLM endpoint, DeepSeek-V4-Flash)
 - Expansion loop: atomicity is now judged **before** exploration, so an
@@ -25,6 +36,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   made Chinese corpora retrieve nothing, producing only reject samples).
 - `run_pipeline(resume=False)` no longer synthesizes every bundle twice
   (stage re-entry through `stage_verify`).
+- Web source: a non-JSON 200 response (proxy/filter block page) now raises
+  a clear error instead of a bare JSONDecodeError.
 
 ## [0.1.0] - 2026-08-13
 

@@ -86,6 +86,7 @@ class LocalSourceConfig(BaseModel):
     paths: list[str] = Field(default_factory=lambda: ["./corpus"])
     chunk_size: int = 800
     chunk_overlap: int = 100
+    adapter: str = "auto"  # auto = CorpusAdapterAgent (LLM) w/ heuristic fallback; heuristic only
 
 
 class PostprocessConfig(BaseModel):
@@ -97,6 +98,7 @@ class PostprocessConfig(BaseModel):
 class RetrieveConfig(BaseModel):
     sources: list[str] = Field(default_factory=lambda: ["local"])
     per_node_materials: int = 8
+    verify_ssl: bool = True  # False only behind TLS-inspecting corporate proxies
     web: WebSourceConfig = Field(default_factory=WebSourceConfig)
     local: LocalSourceConfig = Field(default_factory=LocalSourceConfig)
     postprocess: PostprocessConfig = Field(default_factory=PostprocessConfig)

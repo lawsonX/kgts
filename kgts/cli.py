@@ -97,6 +97,36 @@ def retrieve(
 
 
 @app.command()
+def ingest(
+    config: Path = _CONFIG,
+    save: bool = typer.Option(False, "--save", help="Cache the inferred spec into the workdir."),
+):
+    """Preview the CorpusAdapterAgent's extraction spec for the local corpus."""
+    cfg = _config(config)
+    from kgts.orchestrate.runner import make_llm
+    from kgts.retrieve.ingest import CorpusAdapterAgent
+
+    agent = CorpusAdapterAgent(make_llm(cfg, Path(cfg.run.workdir)))
+    samples = agent.sample_files(cfg.retrieve.local.paths)
+    if not samples:
+        typer.echo("no readable corpus files found", err=True)
+        raise typer.Exit(1)
+    typer.echo(f"sampled {len(samples)} files: {', '.join(samples)}")
+    spec = agent.infer_spec(samples)
+    if spec is None:
+        typer.echo("no spec inferred (heuristics will be used)")
+        raise typer.Exit(1)
+    typer.echo(spec.model_dump_json(indent=2))
+    if save:
+        from kgts.orchestrate.runner import corpus_spec_path
+
+        path = corpus_spec_path(cfg)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(spec.model_dump_json())
+        typer.echo(f"spec cached to {path}")
+
+
+@app.command()
 def synth(
     config: Path = _CONFIG,
     types: str | None = typer.Option(None, "--types", help="Comma-separated task types."),
