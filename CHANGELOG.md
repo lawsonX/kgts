@@ -21,6 +21,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - General-knowledge (Chinese) example: `configs/seeds/general_small.yaml`
   + `examples/corpus_zh/`.
 - `build.max_children_per_node` config (default 6) to cap expansion fan-out.
+- Material feedback loop (design 6.3): Stage C writes real per-node
+  material counts back into `node.stats.n_materials`, re-judges atomicity,
+  and re-persists `graph.db` — expansion stop signals now use real numbers.
+- LLM resilience: transient provider errors (429/timeout/5xx, matched by
+  class name) retry with exponential backoff; new config
+  `llm.max_retries` / `llm.retry_backoff`.
+- `kgts graph --export dot|json` and `kgts review --queue all|align|parents`.
 - Local corpus: `.jsonl` heuristic parsing (text/content/body fields, OCR
   dict dumps), chunk cosine norms precomputed at index time.
 
@@ -36,6 +43,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   made Chinese corpora retrieve nothing, producing only reject samples).
 - `run_pipeline(resume=False)` no longer synthesizes every bundle twice
   (stage re-entry through `stage_verify`).
+- `sample.prioritizer` values other than `inverse_frequency` now raise a
+  clear "not wired yet" error instead of being silently ignored.
+- `budget.max_cost_usd` is now enforced: LiteLLMClient tracks per-call cost
+  via litellm.completion_cost and ManagedLLM raises BudgetExceeded at the cap.
+- Aligner embeddings now use the shared CJK-aware tokenizer: with the old
+  ASCII-only tokenizer every Chinese candidate scored 0 similarity and
+  short-circuited to DISTINCT, so near-duplicates survived without ever
+  reaching the LLM judge (observed at 300-node scale).
+- Node ids keep CJK characters readable (`slugify` is now unicode-aware).
 - Web source: a non-JSON 200 response (proxy/filter block page) now raises
   a clear error instead of a bare JSONDecodeError.
 

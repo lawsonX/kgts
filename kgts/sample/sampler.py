@@ -32,6 +32,12 @@ def sample_bundles(store: GraphStore, config: SampleConfig, seed: int = 42) -> l
     nodes = store.nodes()  # merged nodes are excluded (alias-index only)
     if not nodes or config.n_samples <= 0:
         return []
+    if config.prioritizer != "inverse_frequency":
+        raise ValueError(
+            f"sample.prioritizer={config.prioritizer!r} is not available in this "
+            "version: only 'inverse_frequency' is wired; 'ece' is a plugin point "
+            "(see docs/plugins.md)"
+        )
     prioritizer = InverseFrequencyPrioritizer(alpha=config.quotas.long_tail_alpha)
 
     def weight(node_id: str) -> float:

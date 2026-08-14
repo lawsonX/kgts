@@ -22,8 +22,12 @@ def _new_id(prefix: str) -> str:
 
 
 def slugify(label: str) -> str:
-    """Normalize a label into a stable slug used for node ids."""
-    slug = re.sub(r"[^a-z0-9]+", "-", label.lower()).strip("-")
+    """Normalize a label into a stable slug used for node ids.
+
+    Keeps unicode word characters so CJK labels stay readable
+    (``\\w`` is unicode-aware in Python 3).
+    """
+    slug = re.sub(r"[^\w]+", "-", label.lower()).strip("-")
     return slug or "node"
 
 

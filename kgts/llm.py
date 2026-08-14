@@ -99,6 +99,7 @@ class LiteLLMClient:
         self.model = model
         self.api_base = api_base
         self.default_kw = default_kw
+        self.last_cost = 0.0  # USD cost of the most recent call (for ManagedLLM)
 
     def complete(self, prompt: str, *, temperature: float = 0.7, **kw: Any) -> str:
         import litellm
@@ -110,6 +111,10 @@ class LiteLLMClient:
             api_base=self.api_base,
             **{**self.default_kw, **kw},
         )
+        try:
+            self.last_cost = float(litellm.completion_cost(completion_response=resp) or 0.0)
+        except Exception:
+            self.last_cost = 0.0  # unknown pricing: budget stays call-based
         return resp.choices[0].message.content or ""
 
     def complete_json(self, prompt: str, *, temperature: float = 0.2, **kw: Any) -> Any:
@@ -127,17 +132,24 @@ class ManagedLLM:
         client: LLMClient,
         *,
         max_calls: int | None = None,
+        max_cost_usd: float | None = None,
         rpm: int | None = None,
         cache_dir: str | Path | None = None,
+        max_retries: int = 4,
+        retry_backoff: float = 20.0,
     ):
         self.client = client
         self.model = getattr(client, "model", "unknown")
         self.max_calls = max_calls
+        self.max_cost_usd = max_cost_usd
         self.rpm = rpm
         self.cache_dir = Path(cache_dir) if cache_dir else None
         if self.cache_dir:
             self.cache_dir.mkdir(parents=True, exist_ok=True)
         self.n_calls = 0
+        self.total_cost = 0.0
+        self.max_retries = max_retries
+        self.retry_backoff = retry_backoff
         self._last_call_ts = 0.0
 
     # -- internals ---------------------------------------------------------
@@ -162,13 +174,36 @@ class ManagedLLM:
             raise BudgetExceeded(
                 f"LLM call budget exhausted ({self.max_calls}); raise budget.max_llm_calls"
             )
+        if self.max_cost_usd is not None and self.total_cost >= self.max_cost_usd:
+            raise BudgetExceeded(
+                f"LLM cost budget exhausted (${self.total_cost:.4f} >= "
+                f"${self.max_cost_usd}); raise budget.max_cost_usd"
+            )
         self._throttle()
-        reply = self.client.complete(prompt, temperature=temperature, **kw)
+        reply = self._complete_with_retry(prompt, temperature, **kw)
         self._last_call_ts = time.monotonic()
         self.n_calls += 1
+        self.total_cost += float(getattr(self.client, "last_cost", 0.0) or 0.0)
         if cache_file:
             cache_file.write_text(json.dumps({"reply": reply}, ensure_ascii=False))
         return reply
+
+    # transient provider errors worth backing off for (matched by class name
+    # so this stays client-agnostic): 429s, timeouts, connection drops, 5xx
+    _RETRYABLE = ("RateLimit", "Timeout", "APIConnection", "ServiceUnavailable", "InternalServer")
+
+    def _complete_with_retry(self, prompt: str, temperature: float, **kw: Any) -> str:
+        attempt = 0
+        while True:
+            try:
+                return self.client.complete(prompt, temperature=temperature, **kw)
+            except Exception as exc:
+                retryable = any(k in type(exc).__name__ for k in self._RETRYABLE)
+                if not retryable or attempt >= self.max_retries:
+                    raise
+                delay = self.retry_backoff * (2**attempt)
+                time.sleep(delay)
+                attempt += 1
 
     # -- public API (mirrors LLMClient) ------------------------------------
     def complete(self, prompt: str, *, temperature: float = 0.7, **kw: Any) -> str:

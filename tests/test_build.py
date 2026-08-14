@@ -180,3 +180,29 @@ def test_expand_graph_budget_exceeded_breaks_gracefully():
     # seeds + first layer were inserted before the loop broke; no exception escaped
     assert len(store) == 4
     assert store.find("CS").status == NodeStatus.EXPANDING
+
+
+def test_aligner_chinese_near_duplicates_reach_judge():
+    """Regression: CJK labels must produce embedding tokens; otherwise every
+    Chinese candidate scores 0 and short-circuits to DISTINCT without the
+    LLM judge (observed: 危险品识别与处置 vs 危险物品识别与处置)."""
+    from kgts.build.aligner import Aligner, _cosine, _hash_embed
+
+    sim = _cosine(_hash_embed("危险品识别与处置"), _hash_embed("危险物品识别与处置"))
+    assert sim > 0.5, f"Chinese near-duplicates should be similar, got {sim}"
+
+    store = GraphStore()
+    store.add_node(Node.create("危险品识别与处置"))
+    judge = MockLLM(default={"verdict": "equivalent", "matched_label": "危险品识别与处置",
+                             "canonical": "危险品识别与处置"})
+    aligner = Aligner(judge, store, AlignConfig(embed_threshold=0.75))
+    decision = aligner.align("危险物品识别与处置", store.get(next(iter(store._nodes))))
+    assert judge.calls, "similar Chinese labels must reach the LLM judge"
+    assert decision.verdict == AlignVerdict.EQUIVALENT
+
+
+def test_slugify_keeps_cjk():
+    from kgts.models import slugify
+
+    assert slugify("犯罪现场勘查") == "犯罪现场勘查"
+    assert slugify("GPU Programming") == "gpu-programming"

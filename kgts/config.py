@@ -28,6 +28,8 @@ class LLMConfig(BaseModel):
     api_base: str | None = None
     rpm: int | None = 60
     cache: bool = True
+    max_retries: int = 4  # transient errors (429/timeout/5xx) retry with backoff
+    retry_backoff: float = 20.0  # seconds; doubled per attempt
 
 
 class BudgetConfig(BaseModel):

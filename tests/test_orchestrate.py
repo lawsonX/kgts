@@ -314,3 +314,31 @@ class TestReport:
         md = render_markdown(report)
         for section in ("Coverage", "Duplication", "Diversity", "Quality", "Provenance"):
             assert f"## {section}" in md
+
+
+def test_write_back_material_stats(tmp_path):
+    """Stage C feedback: counts land in node.stats; a material-sufficient
+    EXPANDING node is re-judged ATOMIC; graph.db is re-persisted."""
+    from kgts.config import Config, RunConfig
+    from kgts.models import Material, NodeStatus, SourceType
+    from kgts.orchestrate.runner import _write_back_material_stats
+
+    cfg = Config(run=RunConfig(workdir=str(tmp_path)))
+    store = GraphStore()
+    parent = store.add_node(Node.create("Parent"))
+    child = store.add_node(Node.create("Child"))
+    store.add_edge(Edge(parent=parent.id, child=child.id))
+    store.save(tmp_path / "graph.db")
+
+    mats = [
+        Material(source_type=SourceType.LOCAL, text="x", linked_nodes=[child.id])
+        for _ in range(5)  # default atomicity.min_materials == 5
+    ]
+    _write_back_material_stats(cfg, store, mats)
+
+    assert store.get(child.id).stats.n_materials == 5
+    assert store.get(child.id).status == NodeStatus.ATOMIC
+    assert store.get(parent.id).stats.n_materials == 0
+    reloaded = GraphStore.load(tmp_path / "graph.db")
+    assert reloaded.get(child.id).stats.n_materials == 5
+    assert reloaded.get(child.id).status == NodeStatus.ATOMIC

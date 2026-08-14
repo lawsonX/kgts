@@ -204,6 +204,7 @@ def run(
 def graph(
     config: Path = _CONFIG,
     stats: bool = typer.Option(False, "--stats", help="Print per-level histogram."),
+    export: str | None = typer.Option(None, "--export", help="Export the DAG: dot|json."),
 ):
     """Inspect the knowledge DAG checkpoint (workdir/graph.db)."""
     from kgts.orchestrate.runner import load_graph
@@ -217,19 +218,63 @@ def graph(
         hist = Counter(n.level for n in store.nodes())
         for level in sorted(hist):
             typer.echo(f"  level {level}: {hist[level]}")
+    if export:
+        _export_graph(store, cfg, export)
+
+
+def _export_graph(store, cfg, fmt: str) -> None:
+    import json as _json
+
+    out = Path(cfg.export.out_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    if fmt == "json":
+        payload = {
+            "nodes": [n.model_dump() for n in store.nodes()],
+            "edges": [e.model_dump() for e in store.edges()],
+        }
+        path = out / "graph.json"
+        path.write_text(_json.dumps(payload, ensure_ascii=False, indent=2))
+    elif fmt == "dot":
+        lines = ["digraph kgts {"]
+        for n in store.nodes():
+            label = n.label.replace('"', "'")
+            lines.append(f'  "{n.id}" [label="{label}\\nL{n.level} {n.status.value}"];')
+        for e in store.edges():
+            style = "solid" if e.relation.value == "is_subconcept" else "dashed"
+            lines.append(f'  "{e.parent}" -> "{e.child}" [style={style}];')
+        lines.append("}")
+        path = out / "graph.dot"
+        path.write_text("\n".join(lines) + "\n")
+    else:
+        typer.echo(f"unknown export format {fmt!r}: dot|json", err=True)
+        raise typer.Exit(1)
+    typer.echo(f"graph exported -> {path}")
 
 
 @app.command()
-def review(config: Path = _CONFIG):
-    """Print the human review queue (soft-constraint violations)."""
-    from kgts.orchestrate.runner import load_graph
+def review(
+    config: Path = _CONFIG,
+    queue: str = typer.Option("all", "--queue", help="all|align|parents"),
+):
+    """Print the human review queue: soft-constraint flags and/or align verdicts."""
+    from kgts.orchestrate.runner import artifacts_of, load_graph
 
     cfg = _config(config)
     store = _guard(load_graph, cfg, "review")
-    flags = store.review_flags
-    typer.echo(f"review queue: {len(flags)} flags")
-    for flag in flags:
-        typer.echo(f"  {flag}")
+    if queue not in ("all", "align", "parents"):
+        typer.echo(f"unknown queue {queue!r}: all|align|parents", err=True)
+        raise typer.Exit(1)
+    if queue in ("all", "parents"):
+        kinds = None if queue == "all" else {"max_parents_exceeded", "level_soft_violation"}
+        flags = [f for f in store.review_flags if kinds is None or f.get("kind") in kinds]
+        typer.echo(f"review flags: {len(flags)}")
+        for flag in flags:
+            typer.echo(f"  {flag}")
+    if queue in ("all", "align"):
+        decisions = artifacts_of(cfg).load_align_decisions()
+        typer.echo(f"align verdicts: {len(decisions)}")
+        for d in decisions[:50]:
+            typer.echo(f"  [{d.verdict.value}] {d.candidate_label} -> {d.matched_node}")
 
 
 @app.command()

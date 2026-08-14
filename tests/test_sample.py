@@ -1,5 +1,7 @@
 """Offline tests for Stage B (sampling scheduler)."""
 
+import pytest
+
 from kgts.config import SampleConfig
 from kgts.graph.store import GraphStore
 from kgts.models import Edge, Node, NodeStatus, Relation, SampleIntent
@@ -107,3 +109,11 @@ def test_depth_pool_falls_back_to_leaves_when_no_atomic():
     assert len(bundles) == 4
     assert all(b.intent == SampleIntent.DEPTH for b in bundles)
     assert all(b.nodes[0] in leaves for b in bundles)
+
+
+def test_unknown_prioritizer_raises():
+    from kgts.config import SampleConfig
+
+    store = _fixture_store()
+    with pytest.raises(ValueError, match="prioritizer"):
+        sample_bundles(store, SampleConfig(prioritizer="ece"), seed=1)

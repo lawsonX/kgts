@@ -89,8 +89,11 @@ def make_llm(config: Config, workdir: Path):
     return ManagedLLM(
         client,
         max_calls=config.budget.max_llm_calls,
+        max_cost_usd=config.budget.max_cost_usd,
         rpm=config.llm.rpm,
         cache_dir=cache_dir,
+        max_retries=config.llm.max_retries,
+        retry_backoff=config.llm.retry_backoff,
     )
 
 
@@ -152,7 +155,38 @@ def stage_retrieve(
         materials = list(by_id.values())
         path.write_text(json.dumps([m.model_dump() for m in materials], ensure_ascii=False))
     artifacts_of(config).save_materials(materials)
+    _write_back_material_stats(config, store, materials)
     return store, bundles, {m.id: m for m in materials}
+
+
+def _write_back_material_stats(
+    config: Config, store: GraphStore, materials: list[Material]
+) -> None:
+    """Stage C -> Stage A feedback loop (design 6.3): real per-node material
+    counts replace the (untrusted) explorer estimates in ``node.stats``, and
+    nodes now proven material-sufficient are re-judged atomic. Persisted back
+    to graph.db so reports and future expansion runs see real numbers.
+    """
+    from kgts.build.atomicity import AtomicityJudge
+
+    counts: dict[str, int] = {}
+    for m in materials:
+        for nid in m.linked_nodes:
+            counts[nid] = counts.get(nid, 0) + 1
+    judge = AtomicityJudge(config.build.atomicity)
+    changed = False
+    for nid, count in counts.items():
+        if nid not in store:
+            continue
+        node = store.get(nid)
+        node.stats.n_materials = count
+        if judge.is_atomic(node):
+            from kgts.models import NodeStatus
+
+            node.status = NodeStatus.ATOMIC
+        changed = True
+    if changed:
+        store.save(graph_db_path(config))
 
 
 def corpus_spec_path(config: Config) -> Path:

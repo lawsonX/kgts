@@ -60,3 +60,24 @@ def test_sample_without_graph_fails_cleanly(tmp_path):
 def test_missing_config_fails_cleanly(tmp_path):
     result = runner.invoke(app, ["graph", "--config", str(tmp_path / "nope.yaml")])
     assert result.exit_code != 0
+
+
+def test_graph_export_and_review_queue(tmp_path):
+    """kgts graph --export dot|json writes files; review --queue filters."""
+    import json as _json
+
+    workdir = tmp_path / ".kgts"
+    _make_graph(workdir, n_nodes=4)
+    cfg = tmp_path / "config.yaml"
+    out_dir = tmp_path / "out"
+    cfg.write_text(f"run:\n  workdir: {workdir}\nexport:\n  out_dir: {out_dir}\n")
+    for fmt in ("dot", "json"):
+        result = runner.invoke(app, ["graph", "--config", str(cfg), "--export", fmt])
+        assert result.exit_code == 0, result.output
+    assert (out_dir / "graph.dot").read_text().startswith("digraph")
+    payload = _json.loads((out_dir / "graph.json").read_text())
+    assert payload["nodes"] and payload["edges"]
+    result = runner.invoke(app, ["review", "--config", str(cfg), "--queue", "align"])
+    assert result.exit_code == 0, result.output
+    result = runner.invoke(app, ["review", "--config", str(cfg), "--queue", "bogus"])
+    assert result.exit_code != 0

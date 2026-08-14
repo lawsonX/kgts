@@ -134,6 +134,22 @@ class ArtifactStore:
         finally:
             conn.close()
 
+    def load_align_decisions(self, verdict: str | None = None) -> list[AlignDecision]:
+        conn = self._connect()
+        try:
+            if verdict:
+                rows = conn.execute(
+                    "SELECT data FROM align_verdicts WHERE verdict=? ORDER BY decided_at",
+                    (verdict,),
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    "SELECT data FROM align_verdicts ORDER BY decided_at"
+                ).fetchall()
+        finally:
+            conn.close()
+        return [AlignDecision.model_validate_json(r[0]) for r in rows]
+
     # ------------------------------------------------------------------- runs
     def create_run(self, run: Run) -> None:
         conn = self._connect()

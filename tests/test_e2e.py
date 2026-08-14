@@ -166,3 +166,15 @@ def test_full_pipeline_offline(tmp_path: Path) -> None:
     assert manifest["counts"]["materials"] == len(store_ids)
     assert (out_dir / "report.md").exists()
     assert (out_dir / "report.json").exists()
+
+
+def test_material_stats_write_back(tmp_path: Path) -> None:
+    """Stage C feedback: real material counts land in node.stats, and
+    material-sufficient nodes are re-judged ATOMIC (design 6.3 loop)."""
+
+    config = _make_config(tmp_path)
+    run_pipeline(config, resume=True, llm=E2EMockLLM(default=DEFAULT_REPLY))
+    store = GraphStore.load(Path(config.run.workdir) / "graph.db")
+    counts = {n.label: n.stats.n_materials for n in store.nodes()}
+    assert any(c > 0 for c in counts.values()), "no material counts written back"
+    # (the atomic re-judgment itself is covered precisely in test_orchestrate)
