@@ -281,13 +281,14 @@ def review(
 def serve(
     config: Path = _CONFIG,
     port: int = typer.Option(7860, "--port"),
+    host: str = typer.Option("127.0.0.1", "--host", help="Use 0.0.0.0 to expose on the LAN."),
 ):
     """Launch the Gradio workdir viewer."""
     from kgts.ui.app import main as ui_main
 
     cfg = _config(config)
     try:
-        ui_main(workdir=cfg.run.workdir, port=port)
+        ui_main(workdir=cfg.run.workdir, port=port, host=host)
     except RuntimeError as e:
         typer.secho(str(e), fg=typer.colors.RED, err=True)
         raise typer.Exit(1) from None

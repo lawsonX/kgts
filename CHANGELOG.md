@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `kgts.api` stable consumption surface + `docs/consuming.md` +
+  `skills/kgts-graph-consumption/SKILL.md`: graph creation/consumption is now
+  deliberately decoupled from dataset generation, so external synthesis
+  agents can consume the DAG / bundles / materials directly.
+- Export context injection (`export.include_context`, default on): exported
+  SFT rows embed the cited materials in the user message and RL rows gain a
+  `context` field, so grounded questions are answerable as shipped.
+- Generation prompts now carry explicit answerability rules (no references to
+  context the solver cannot see); reject-sample wording no longer points at
+  unshipped materials.
 - **CorpusAdapterAgent** (`kgts/retrieve/ingest.py`): agentic input-data
   compatibility — samples any local corpus, infers a declarative
   `ExtractionSpec` via LLM, verifies it on real records with one
@@ -24,6 +34,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Material feedback loop (design 6.3): Stage C writes real per-node
   material counts back into `node.stats.n_materials`, re-judges atomicity,
   and re-persists `graph.db` — expansion stop signals now use real numbers.
+- UI: interactive graph view (pyvis/vis-network, inline JS so it renders
+  offline; color = level, thick border = atomic, dashed = is_related) and a
+  Tasks browser tab with type/result filters and per-task provenance.
 - LLM resilience: transient provider errors (429/timeout/5xx, matched by
   class name) retry with exponential backoff; new config
   `llm.max_retries` / `llm.retry_backoff`.

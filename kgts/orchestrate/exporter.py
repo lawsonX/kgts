@@ -1,4 +1,9 @@
-"""Stage E export: SFT/RL JSONL formats plus a full-lineage manifest (design §8)."""
+"""Stage E export: SFT/RL JSONL formats plus a full-lineage manifest (design §8).
+
+Context injection: exported rows embed the task's cited materials (truncated
+to a char budget) so the trainee actually sees the context the question
+refers to -- a question that points at unseen materials trains hallucination.
+"""
 
 from __future__ import annotations
 
@@ -8,17 +13,59 @@ from pathlib import Path
 
 from kgts.models import Material, Run, Task, VerifyResult
 
+DEFAULT_CONTEXT_BUDGET = 4000  # chars, shared by all materials of one task
 
-def export_sft(tasks: list[Task]) -> list[dict]:
-    """SFT messages format; keeps tasks that passed or are SFT-only (no verifier)."""
+
+def _context_block(
+    task: Task, materials_by_id: dict[str, Material], char_budget: int
+) -> str:
+    """Render the task's cited materials as a context block ('' if none)."""
+    zh = str(task.style.get("language", "")).lower().startswith("zh")
+    header = "材料：" if zh else "Materials:"
+    question = "问题" if zh else "Question"
+    parts: list[str] = []
+    used = 0
+    for mid in task.materials:
+        m = materials_by_id.get(mid)
+        if m is None:
+            continue
+        text = (m.text or m.snippet).strip()
+        if not text:
+            continue
+        remaining = char_budget - used
+        if remaining <= 0:
+            break
+        text = text[:remaining]
+        used += len(text)
+        parts.append(f"[{m.id}] {m.title}\n{text}".strip())
+    if not parts:
+        return ""
+    return f"{header}\n" + "\n\n".join(parts) + f"\n\n{question}："
+
+
+def export_sft(
+    tasks: list[Task],
+    materials_by_id: dict[str, Material] | None = None,
+    *,
+    include_context: bool = True,
+    char_budget: int = DEFAULT_CONTEXT_BUDGET,
+) -> list[dict]:
+    """SFT messages format; keeps tasks that passed or are SFT-only (no verifier).
+
+    With ``materials_by_id`` given and ``include_context``, the user message is
+    ``<context block><question>`` so grounded questions are answerable as shipped.
+    """
     rows = []
     for t in tasks:
         if t.verify_result not in (VerifyResult.PASS, VerifyResult.SFT_ONLY):
             continue
+        context = ""
+        if include_context and materials_by_id:
+            context = _context_block(t, materials_by_id, char_budget)
         rows.append(
             {
                 "messages": [
-                    {"role": "user", "content": t.question},
+                    {"role": "user", "content": f"{context}{t.question}"},
                     {"role": "assistant", "content": t.answer},
                 ],
                 "task_id": t.id,
@@ -28,16 +75,26 @@ def export_sft(tasks: list[Task]) -> list[dict]:
     return rows
 
 
-def export_rl(tasks: list[Task]) -> list[dict]:
-    """RL format: prompt + rubric + verifier hook; requires PASS and a verifier."""
+def export_rl(
+    tasks: list[Task],
+    materials_by_id: dict[str, Material] | None = None,
+    *,
+    include_context: bool = True,
+    char_budget: int = DEFAULT_CONTEXT_BUDGET,
+) -> list[dict]:
+    """RL format: prompt + context + rubric + verifier hook; requires PASS + verifier."""
     rows = []
     for t in tasks:
         if t.verify_result != VerifyResult.PASS or t.verifier is None:
             continue
+        context = ""
+        if include_context and materials_by_id:
+            context = _context_block(t, materials_by_id, char_budget)
         rows.append(
             {
                 "task_id": t.id,
                 "prompt": t.question,
+                "context": context,
                 "rubric": t.rubric,
                 "verifier": t.verifier,
                 "env": None,
@@ -46,13 +103,20 @@ def export_rl(tasks: list[Task]) -> list[dict]:
     return rows
 
 
-def write_export(tasks: list[Task], fmt: str, out_path: str | Path) -> int:
+def write_export(
+    tasks: list[Task],
+    fmt: str,
+    out_path: str | Path,
+    materials_by_id: dict[str, Material] | None = None,
+    *,
+    include_context: bool = True,
+) -> int:
     """Write one JSON object per line; returns the number of rows written."""
     fmt = fmt.lower()
     if fmt == "sft":
-        rows = export_sft(tasks)
+        rows = export_sft(tasks, materials_by_id, include_context=include_context)
     elif fmt == "rl":
-        rows = export_rl(tasks)
+        rows = export_rl(tasks, materials_by_id, include_context=include_context)
     else:
         raise ValueError(f"unknown export format {fmt!r}; expected 'sft' or 'rl'")
     out_path = Path(out_path)

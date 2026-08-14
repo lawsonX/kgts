@@ -137,6 +137,12 @@ python examples/quickstart_offline.py
 导出产物落在 `export.out_dir`：`tasks_sft.jsonl`、`tasks_rl.jsonl`、
 `manifest.json`、`report.md` / `report.json`。
 
+## 用你自己的合成 agent 消费 KGTS
+
+KGTS 刻意把"图谱创建"与"数据集生成"解耦：如果你有自己的数据合成 agent，
+可以直接消费知识 DAG、采样束和锚定材料——见 [docs/consuming.md](docs/consuming.md)
+和现成的 skill `skills/kgts-graph-consumption/SKILL.md`。
+
 ## CLI
 
 所有命令都需要 `--config/-c PATH` 参数。

@@ -172,6 +172,13 @@ python examples/quickstart_offline.py
 Exports land in `export.out_dir`: `tasks_sft.jsonl`, `tasks_rl.jsonl`,
 `manifest.json`, `report.md` / `report.json`.
 
+## Using KGTS from your own synthesis agent
+
+KGTS deliberately decouples graph creation from dataset generation: if you
+have your own data-synthesis agent, it can consume the DAG, sampling bundles
+and anchored materials directly — see [docs/consuming.md](docs/consuming.md)
+and the ready-made skill `skills/kgts-graph-consumption/SKILL.md`.
+
 ## CLI
 
 All commands take `--config/-c PATH` (required).

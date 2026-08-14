@@ -136,6 +136,8 @@ class VerifyConfig(BaseModel):
 class ExportConfig(BaseModel):
     formats: list[str] = Field(default_factory=lambda: ["sft", "rl"])
     out_dir: str = "./output"
+    include_context: bool = True  # embed cited materials so questions are answerable
+    context_char_budget: int = 4000
 
 
 class Config(BaseModel):

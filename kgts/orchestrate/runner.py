@@ -276,8 +276,15 @@ def stage_export(config: Config) -> dict[str, int]:
     from kgts.orchestrate.exporter import write_export, write_manifest
 
     counts = {}
+    materials_by_id = {m.id: m for m in materials}
     for fmt in config.export.formats:
-        counts[fmt] = write_export(tasks, fmt, out_dir / f"tasks_{fmt}.jsonl")
+        counts[fmt] = write_export(
+            tasks,
+            fmt,
+            out_dir / f"tasks_{fmt}.jsonl",
+            materials_by_id,
+            include_context=config.export.include_context,
+        )
     runs = artifacts.list_runs()
     run = runs[-1] if runs else Run(config_hash=config.config_hash())
     write_manifest(run, tasks, materials, config.config_hash(), out_dir / "manifest.json")

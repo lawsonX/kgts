@@ -342,3 +342,30 @@ def test_write_back_material_stats(tmp_path):
     reloaded = GraphStore.load(tmp_path / "graph.db")
     assert reloaded.get(child.id).stats.n_materials == 5
     assert reloaded.get(child.id).status == NodeStatus.ATOMIC
+
+
+def test_export_injects_material_context():
+    """Exported SFT/RL rows must carry the cited materials, so questions that
+    reference 材料/materials are answerable as shipped (anti-hallucination)."""
+    from kgts.orchestrate.exporter import export_rl, export_sft
+
+    mat = Material(
+        id="m_aaaaaaaaaaaa", source_type=SourceType.LOCAL, title="教材A",
+        text="现场保护是勘查的首要任务。", snippet="现场保护…",
+    )
+    task = Task(
+        task_type="atomic_qa", sample_bundle=SampleBundle(nodes=['n_x'], intent=SampleIntent.DEPTH),
+        materials=["m_aaaaaaaaaaaa"], question="根据材料，现场保护的意义是什么？",
+        answer="防止现场状态被破坏[m_aaaaaaaaaaaa]", verifier="answer_match",
+        verify_result=VerifyResult.PASS, style={"language": "zh"},
+    )
+    by_id = {"m_aaaaaaaaaaaa": mat}
+    sft = export_sft([task], by_id)
+    user_msg = sft[0]["messages"][0]["content"]
+    assert "材料：" in user_msg and "现场保护是勘查的首要任务" in user_msg
+    assert "[m_aaaaaaaaaaaa]" in user_msg and user_msg.endswith(task.question)
+    rl = export_rl([task], by_id)
+    assert "现场保护是勘查的首要任务" in rl[0]["context"]
+    # opt-out keeps the legacy bare-question behavior
+    bare = export_sft([task], by_id, include_context=False)
+    assert bare[0]["messages"][0]["content"] == task.question

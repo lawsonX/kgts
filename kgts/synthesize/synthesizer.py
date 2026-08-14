@@ -63,9 +63,9 @@ class Synthesizer:
         labels = [self._label(store, bundle, nid) for nid in bundle.nodes]
         topic = "、".join(labels) if language == "zh" else ", ".join(labels)
         question = (
-            f"请根据检索材料介绍：{topic}。"
+            f"请介绍：{topic}。"
             if language == "zh"
-            else f"Based on the retrieved materials, explain: {topic}."
+            else f"Explain: {topic}."
         )
         return Task(
             task_type=name,

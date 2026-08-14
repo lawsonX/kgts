@@ -18,6 +18,20 @@ _CITE_RULE = (
     "the material ID in square brackets exactly as listed above (e.g. [m_ab12cd34ef56])."
 )
 
+# The solver of the exported task only sees the materials we ship alongside the
+# question (export injects them as context). A question that points at context
+# the solver cannot see trains hallucination, so ground rules are explicit:
+_ANSWERABILITY_RULE = (
+    "Answerability rules (violations make the task useless for training):\n"
+    "1. The question MUST be answerable solely from the materials listed above "
+    "-- never require outside knowledge the materials do not contain.\n"
+    "2. Refer to the materials explicitly as '材料' is fine ONLY because the "
+    "materials are shipped with the task; never reference context that is not "
+    "listed above (e.g. '上文', '前文', '该文章', 'the document' when none is given).\n"
+    "3. If the question depends on a specific fact, name the fact in the question "
+    "itself instead of pointing vaguely at the materials."
+)
+
 
 def _node_label(bundle: SampleBundle, node_id: str) -> str:
     path = bundle.ancestor_paths.get(node_id) or []
@@ -52,6 +66,8 @@ def _build_prompt(
     lines += [
         "",
         _CITE_RULE,
+        "",
+        _ANSWERABILITY_RULE,
         "",
         'Reply with JSON only: {"question": str, "answer": str, "rubric": [str, ...]}.',
     ]
