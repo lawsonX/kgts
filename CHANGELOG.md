@@ -12,6 +12,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `skills/kgts-graph-consumption/SKILL.md`: graph creation/consumption is now
   deliberately decoupled from dataset generation, so external synthesis
   agents can consume the DAG / bundles / materials directly.
+- `build.atomicity.max_depth` (default 6): the depth fuse is now
+  configurable — with deepest-first expansion a sane floor keeps the budget
+  from piling up as description-less leaves at the hard cap.
+- `build.queue_policy` (bfs|dfs|balanced): the expansion frontier's pop
+  order decides which queued nodes the budget explores. `balanced` is
+  seed-fair depth-first (rotates seed subtrees, dives deepest within each) —
+  plain global deepest-first degenerated in practice: one seed's subtree
+  took 577/600 nodes and the hard cap piled up description-less leaves.
 - `export.min_quality` (default 0 = off): generic quality gate — materials
   below the threshold leave the injected context, and tasks with no
   adequately-grounded material left leave the export entirely.

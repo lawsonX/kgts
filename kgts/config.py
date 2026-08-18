@@ -49,6 +49,10 @@ class AtomicityConfig(BaseModel):
     min_synth_success: float = 0.7
     synth_trials: int = 3
     max_child_material_overlap: float = 0.5
+    # hard depth fuse: nodes at this level are always atomic (never explored,
+    # never given children). Choose per granularity goal — a deeper fuse grows
+    # finer leaves, but every frontier level is unavoidably description-less.
+    max_depth: int = 6
 
 
 class BuildConfig(BaseModel):
@@ -56,6 +60,9 @@ class BuildConfig(BaseModel):
     atomicity: AtomicityConfig = Field(default_factory=AtomicityConfig)
     max_parents: int = 3
     max_children_per_node: int = 6  # fan-out cap: LLMs happily list 20+ subfields
+    # expansion queue policy under a fixed budget: bfs = balanced coverage,
+    # dfs = pure stack, balanced = deepest-first (FIFO within one level)
+    queue_policy: str = "bfs"
 
 
 class SampleQuotas(BaseModel):

@@ -109,8 +109,10 @@ invariants:
   (dim 256, cosine, `recall_top_k`); below `embed_threshold` with no exact
   match → `DISTINCT` without an LLM call; stage 2 = LLM ternary judge.
 - `atomicity.py` `AtomicityJudge.is_atomic(node)`: three signals from
-  `node.stats` (materials, synth success, child overlap) + `DEPTH_CAP = 6`.
-- `expand.py` `expand_graph(...)`: queue-driven loop —
+  `node.stats` (materials, synth success, child overlap) + the configurable depth fuse `atomicity.max_depth`.
+- `expand.py` `expand_graph(...)`: queue-driven loop (`_Frontier` with
+  `build.queue_policy` = bfs|dfs|balanced — the pop order decides which
+  queued nodes the budget actually explores) —
   `atomicity gate → explore → align each candidate → commit`; seeds and
   their human-given first layer initialize the queue. Committed children
   are always enqueued (an atomic verdict never orphans them); nodes whose
