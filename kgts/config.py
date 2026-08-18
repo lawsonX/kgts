@@ -138,6 +138,9 @@ class ExportConfig(BaseModel):
     out_dir: str = "./output"
     include_context: bool = True  # embed cited materials so questions are answerable
     context_char_budget: int = 4000
+    # 0 = off; below-threshold materials are dropped from context, and tasks
+    # left without any adequately-grounded material are dropped from export
+    min_quality: float = 0.0
 
 
 class Config(BaseModel):

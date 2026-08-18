@@ -369,3 +369,40 @@ def test_export_injects_material_context():
     # opt-out keeps the legacy bare-question behavior
     bare = export_sft([task], by_id, include_context=False)
     assert bare[0]["messages"][0]["content"] == task.question
+
+
+def test_export_min_quality_filter():
+    """min_quality is generic: junk materials leave the context block, and
+    tasks with no adequately-grounded material leave the export entirely."""
+    from kgts.orchestrate.exporter import export_sft
+
+    good = Material(
+        id="m_goodgoodgood", source_type=SourceType.LOCAL, title="正文",
+        text="现场保护是勘查的首要任务。", quality_score=0.4,
+    )
+    junk = Material(
+        id="m_junkjunkjunk", source_type=SourceType.LOCAL, title="目录页",
+        text="目录 第一章 第二章", quality_score=0.1,
+    )
+    by_id = {m.id: m for m in (good, junk)}
+    grounded = Task(
+        task_type="atomic_qa",
+        sample_bundle=SampleBundle(nodes=["n_x"], intent=SampleIntent.DEPTH),
+        materials=[good.id, junk.id], question="现场保护的意义？",
+        answer="防止现场被破坏[m_goodgoodgood]", verifier="answer_match",
+        verify_result=VerifyResult.PASS, style={"language": "zh"},
+    )
+    junk_only = Task(
+        task_type="atomic_qa",
+        sample_bundle=SampleBundle(nodes=["n_y"], intent=SampleIntent.DEPTH),
+        materials=[junk.id], question="目录里有什么？",
+        answer="只有目录[m_junkjunkjunk]", verifier="answer_match",
+        verify_result=VerifyResult.PASS, style={"language": "zh"},
+    )
+    rows = export_sft([grounded, junk_only], by_id, min_quality=0.25)
+    assert len(rows) == 1  # junk-only task dropped
+    ctx = rows[0]["messages"][0]["content"]
+    assert "现场保护是勘查的首要任务" in ctx
+    assert "目录 第一章" not in ctx  # junk material kept out of the block
+    # default (min_quality=0) keeps legacy behavior: everything exported
+    assert len(export_sft([grounded, junk_only], by_id)) == 2

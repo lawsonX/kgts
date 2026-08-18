@@ -284,6 +284,7 @@ def stage_export(config: Config) -> dict[str, int]:
             out_dir / f"tasks_{fmt}.jsonl",
             materials_by_id,
             include_context=config.export.include_context,
+            min_quality=config.export.min_quality,
         )
     runs = artifacts.list_runs()
     run = runs[-1] if runs else Run(config_hash=config.config_hash())

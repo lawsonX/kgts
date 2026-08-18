@@ -71,6 +71,9 @@ for b in bundles:
   injects a truncated context block; see `export.include_context`). Never
   produce "根据材料…" questions with no materials attached — that trains
   hallucination.
+- **Quality gate**: KGTS's own exporter supports `export.min_quality` —
+  materials below it leave the context, tasks left ungrounded are dropped.
+  Apply the same idea in your generator (OCR junk pages score low).
 - **Provenance**: keep the chain `task → bundle.id → node ids → material ids`.
   If you write your own export, preserve these ids so the data stays auditable.
 - **Sampling is yours to redo**: `bundles.json` is a suggestion. Re-run

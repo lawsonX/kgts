@@ -12,6 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `skills/kgts-graph-consumption/SKILL.md`: graph creation/consumption is now
   deliberately decoupled from dataset generation, so external synthesis
   agents can consume the DAG / bundles / materials directly.
+- `export.min_quality` (default 0 = off): generic quality gate — materials
+  below the threshold leave the injected context, and tasks with no
+  adequately-grounded material left leave the export entirely.
 - Export context injection (`export.include_context`, default on): exported
   SFT rows embed the cited materials in the user message and RL rows gain a
   `context` field, so grounded questions are answerable as shipped.

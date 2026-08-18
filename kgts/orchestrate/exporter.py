@@ -17,9 +17,16 @@ DEFAULT_CONTEXT_BUDGET = 4000  # chars, shared by all materials of one task
 
 
 def _context_block(
-    task: Task, materials_by_id: dict[str, Material], char_budget: int
+    task: Task,
+    materials_by_id: dict[str, Material],
+    char_budget: int,
+    min_quality: float = 0.0,
 ) -> str:
-    """Render the task's cited materials as a context block ('' if none)."""
+    """Render the task's cited materials as a context block ('' if none).
+
+    Materials below ``min_quality`` are excluded (low-relevance or junk chunks
+    such as OCR table-of-contents pages should not be shipped as grounding).
+    """
     zh = str(task.style.get("language", "")).lower().startswith("zh")
     header = "材料：" if zh else "Materials:"
     question = "问题" if zh else "Question"
@@ -27,7 +34,7 @@ def _context_block(
     used = 0
     for mid in task.materials:
         m = materials_by_id.get(mid)
-        if m is None:
+        if m is None or m.quality_score < min_quality:
             continue
         text = (m.text or m.snippet).strip()
         if not text:
@@ -43,12 +50,26 @@ def _context_block(
     return f"{header}\n" + "\n\n".join(parts) + f"\n\n{question}："
 
 
+def _grounded_enough(
+    task: Task, materials_by_id: dict[str, Material], min_quality: float
+) -> bool:
+    """With min_quality > 0, a task that cites materials needs at least one of
+    them above the threshold to be exported (else it is ungrounded data)."""
+    if min_quality <= 0 or not task.materials:
+        return True
+    return any(
+        (m := materials_by_id.get(mid)) is not None and m.quality_score >= min_quality
+        for mid in task.materials
+    )
+
+
 def export_sft(
     tasks: list[Task],
     materials_by_id: dict[str, Material] | None = None,
     *,
     include_context: bool = True,
     char_budget: int = DEFAULT_CONTEXT_BUDGET,
+    min_quality: float = 0.0,
 ) -> list[dict]:
     """SFT messages format; keeps tasks that passed or are SFT-only (no verifier).
 
@@ -59,9 +80,11 @@ def export_sft(
     for t in tasks:
         if t.verify_result not in (VerifyResult.PASS, VerifyResult.SFT_ONLY):
             continue
+        if materials_by_id and not _grounded_enough(t, materials_by_id, min_quality):
+            continue
         context = ""
         if include_context and materials_by_id:
-            context = _context_block(t, materials_by_id, char_budget)
+            context = _context_block(t, materials_by_id, char_budget, min_quality)
         rows.append(
             {
                 "messages": [
@@ -81,15 +104,18 @@ def export_rl(
     *,
     include_context: bool = True,
     char_budget: int = DEFAULT_CONTEXT_BUDGET,
+    min_quality: float = 0.0,
 ) -> list[dict]:
     """RL format: prompt + context + rubric + verifier hook; requires PASS + verifier."""
     rows = []
     for t in tasks:
         if t.verify_result != VerifyResult.PASS or t.verifier is None:
             continue
+        if materials_by_id and not _grounded_enough(t, materials_by_id, min_quality):
+            continue
         context = ""
         if include_context and materials_by_id:
-            context = _context_block(t, materials_by_id, char_budget)
+            context = _context_block(t, materials_by_id, char_budget, min_quality)
         rows.append(
             {
                 "task_id": t.id,
@@ -110,13 +136,20 @@ def write_export(
     materials_by_id: dict[str, Material] | None = None,
     *,
     include_context: bool = True,
+    min_quality: float = 0.0,
 ) -> int:
     """Write one JSON object per line; returns the number of rows written."""
     fmt = fmt.lower()
     if fmt == "sft":
-        rows = export_sft(tasks, materials_by_id, include_context=include_context)
+        rows = export_sft(
+            tasks, materials_by_id,
+            include_context=include_context, min_quality=min_quality,
+        )
     elif fmt == "rl":
-        rows = export_rl(tasks, materials_by_id, include_context=include_context)
+        rows = export_rl(
+            tasks, materials_by_id,
+            include_context=include_context, min_quality=min_quality,
+        )
     else:
         raise ValueError(f"unknown export format {fmt!r}; expected 'sft' or 'rl'")
     out_path = Path(out_path)
