@@ -205,6 +205,7 @@ def graph(
     config: Path = _CONFIG,
     stats: bool = typer.Option(False, "--stats", help="Print per-level histogram."),
     export: str | None = typer.Option(None, "--export", help="Export the DAG: dot|json."),
+    card: bool = typer.Option(False, "--card", help="Regenerate and print the graph card."),
 ):
     """Inspect the knowledge DAG checkpoint (workdir/graph.db)."""
     from kgts.orchestrate.runner import load_graph
@@ -220,6 +221,11 @@ def graph(
             typer.echo(f"  level {level}: {hist[level]}")
     if export:
         _export_graph(store, cfg, export)
+    if card:
+        from kgts.graph.card import render_markdown, write_card
+        from kgts.orchestrate.runner import workdir_of
+
+        typer.echo(render_markdown(write_card(store, cfg, workdir_of(cfg))))
 
 
 def _export_graph(store, cfg, fmt: str) -> None:

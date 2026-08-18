@@ -111,6 +111,9 @@ def stage_build(config: Config, *, llm=None, resume: bool = True) -> GraphStore:
         config.seeds, llm, GraphStore(), config, artifact_store=artifacts_of(config)
     )
     store.save(gdb)
+    from kgts.graph.card import write_card
+
+    write_card(store, config, workdir_of(config))  # every DAG ships with a name card
     return store
 
 
@@ -187,6 +190,9 @@ def _write_back_material_stats(
         changed = True
     if changed:
         store.save(graph_db_path(config))
+        from kgts.graph.card import write_card
+
+        write_card(store, config, workdir_of(config))  # material stats changed the card
 
 
 def corpus_spec_path(config: Config) -> Path:
@@ -289,6 +295,9 @@ def stage_export(config: Config) -> dict[str, int]:
     runs = artifacts.list_runs()
     run = runs[-1] if runs else Run(config_hash=config.config_hash())
     write_manifest(run, tasks, materials, config.config_hash(), out_dir / "manifest.json")
+    card_md = Path(config.run.workdir) / "graph_card.md"
+    if card_md.exists():
+        (out_dir / "graph_card.md").write_text(card_md.read_text())
     return counts
 
 

@@ -12,6 +12,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `skills/kgts-graph-consumption/SKILL.md`: graph creation/consumption is now
   deliberately decoupled from dataset generation, so external synthesis
   agents can consume the DAG / bundles / materials directly.
+- Graph cards (`graph_card.json` authoritative + `.md` rendered):
+  auto-generated after every graph-mutating stage; idempotent when
+  unchanged, revision + delta history on expansion/merges/material
+  write-back, rename-aware; notes section computed from the graph's actual
+  state. `kgts graph --card` regenerates on demand.
 - `build.atomicity.max_depth` (default 6): the depth fuse is now
   configurable — with deepest-first expansion a sane floor keeps the budget
   from piling up as description-less leaves at the hard cap.

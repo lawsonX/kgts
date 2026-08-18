@@ -7,6 +7,13 @@ KGTS gives that agent three things: a knowledge DAG, sampling bundles, and
 anchored materials. This page is the contract.
 
 ## What you get, and where
+Every DAG ships with a **graph card** (`graph_card.json` authoritative +
+`graph_card.md` rendered) regenerated after each graph-mutating stage:
+idempotent when unchanged, revision-bumped with delta history on expansion
+or material write-back, rename-aware. Read it first — its notes section
+reflects the graph's actual state.
+
+
 
 After a run, the workdir (config `run.workdir`) contains:
 
@@ -15,6 +22,7 @@ After a run, the workdir (config `run.workdir`) contains:
 | `graph.db` | the knowledge DAG: nodes (label/aliases/level/status/stats), edges (coarse→fine) | SQLite |
 | `bundles.json` | sampled `SampleBundle`s: node ids + ancestor paths + intent | JSON |
 | `materials.json` | retrieved materials with `linked_nodes`, `text`, `license`, `quality_score` | JSON |
+| `graph_card.json` / `.md` | auto-generated graph card: name, revision, stats, build history, usage notes | JSON + MD |
 | `corpus_spec.json` | the CorpusAdapterAgent's extraction spec for the local corpus | JSON |
 | `artifacts.db` | tasks / align verdicts / runs (if KGTS synthesis also ran) | SQLite |
 | `<out_dir>/graph.json` / `graph.dot` | `kgts graph --export` output | JSON / DOT |
