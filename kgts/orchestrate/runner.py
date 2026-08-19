@@ -107,8 +107,16 @@ def stage_build(config: Config, *, llm=None, resume: bool = True) -> GraphStore:
     from kgts.build.expand import expand_graph
 
     llm = llm or make_llm(config, Path(config.run.workdir))
+    evidence_source = None
+    if config.build.grounded_exploration and "local" in config.retrieve.sources:
+        from kgts.retrieve.sources import LocalCorpusSource
+
+        evidence_source = LocalCorpusSource(
+            config.retrieve.local, spec=_local_spec(config, llm=llm, resume=resume)
+        )
     store = expand_graph(
-        config.seeds, llm, GraphStore(), config, artifact_store=artifacts_of(config)
+        config.seeds, llm, GraphStore(), config, artifact_store=artifacts_of(config),
+        evidence_source=evidence_source,
     )
     store.save(gdb)
     from kgts.graph.card import write_card

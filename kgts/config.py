@@ -61,8 +61,12 @@ class BuildConfig(BaseModel):
     max_parents: int = 3
     max_children_per_node: int = 6  # fan-out cap: LLMs happily list 20+ subfields
     # expansion queue policy under a fixed budget: bfs = balanced coverage,
-    # dfs = pure stack, balanced = deepest-first (FIFO within one level)
+    # dfs = pure stack, balanced = seed-fair depth-first
     queue_policy: str = "bfs"
+    # grounded exploration (K3's "multi-round search & read"): retrieve real
+    # corpus excerpts for each explored node when a local source is configured
+    grounded_exploration: bool = True
+    evidence_chunks: int = 4  # excerpts per explored node, ~400 chars each
 
 
 class SampleQuotas(BaseModel):

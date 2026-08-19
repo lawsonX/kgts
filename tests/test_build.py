@@ -9,7 +9,7 @@ from kgts.build.explorer import ExplorerAgent
 from kgts.config import AlignConfig, AtomicityConfig, Config, SeedSpec
 from kgts.graph.store import GraphStore
 from kgts.llm import ManagedLLM, MockLLM
-from kgts.models import AlignVerdict, Edge, Node, NodeStatus
+from kgts.models import AlignVerdict, Edge, Material, Node, NodeStatus, SourceType
 
 
 def _brief(definition: str, candidates: list[str], estimate: int) -> dict:
@@ -301,3 +301,43 @@ def test_queue_policy_balanced_is_seed_fair_depth_first():
     assert order == ["A1", "A2", "S1", "S2", "B1", "D2", "C1", "E2"]
     # the fairness property: no seed's chain dives twice before the other's first dive
     assert order.index("D2") < order.index("C1")
+
+
+# ---------------------------------------------------- grounded exploration
+class _FakeEvidenceSource:
+    def __init__(self, texts):
+        self.texts = texts
+        self.queries = []
+
+    def search(self, queries, budget):
+        self.queries.extend(queries)
+        return [
+            Material(source_type=SourceType.LOCAL, text=t, snippet=t[:50])
+            for t in self.texts[:budget]
+        ]
+
+
+def test_grounded_exploration_injects_corpus_evidence():
+    llm = MockLLM(default={"definition": "d", "candidates": [], "material_estimate": 0})
+    seeds = [SeedSpec(label="侦查学", children=["现场勘查"])]
+    src = _FakeEvidenceSource(["现场勘查应首先保护现场，防止痕迹灭失。"])
+    store = GraphStore()
+    expand_graph(seeds, llm, store, Config(), evidence_source=src)
+    assert src.queries, "evidence source was queried"
+    joined = "\n".join(llm.calls)
+    assert "现场勘查应首先保护现场" in joined  # excerpt reached the prompt
+    assert "corpus really covers" in joined  # grounding instruction present
+    node = store.find("侦查学")
+    assert any(r.kind == "material" for r in node.provenance)  # provenance noted
+
+
+class _FailingSource:
+    def search(self, queries, budget):
+        raise RuntimeError("corpus gone")
+
+
+def test_evidence_failure_never_stops_expansion():
+    llm = MockLLM(default={"definition": "d", "candidates": [], "material_estimate": 0})
+    store = GraphStore()
+    expand_graph([SeedSpec(label="X")], llm, store, Config(), evidence_source=_FailingSource())
+    assert store.find("X").description == "d"  # explored anyway, no evidence

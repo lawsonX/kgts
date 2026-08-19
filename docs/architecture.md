@@ -110,6 +110,10 @@ invariants:
   match → `DISTINCT` without an LLM call; stage 2 = LLM ternary judge.
 - `atomicity.py` `AtomicityJudge.is_atomic(node)`: three signals from
   `node.stats` (materials, synth success, child overlap) + the configurable depth fuse `atomicity.max_depth`.
+- Grounded exploration: with a local source configured, `stage_build`
+  passes a `LocalCorpusSource` as `evidence_source`; `_gather_evidence`
+  queries it per node (label + nearest ancestor) and the explorer prompt
+  requires corpus-grounded sub-concepts. Failures are non-fatal.
 - `expand.py` `expand_graph(...)`: queue-driven loop (`_Frontier` with
   `build.queue_policy` = bfs|dfs|balanced — the pop order decides which
   queued nodes the budget actually explores) —

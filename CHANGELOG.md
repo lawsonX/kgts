@@ -12,6 +12,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `skills/kgts-graph-consumption/SKILL.md`: graph creation/consumption is now
   deliberately decoupled from dataset generation, so external synthesis
   agents can consume the DAG / bundles / materials directly.
+- Grounded exploration (`build.grounded_exploration`, default on when a
+  local source is configured): each explored node's prompt carries real
+  corpus excerpts and sub-concepts must come from what the corpus actually
+  covers — K3's "multi-round search & read" step, previously LLM-parametric
+  only. Evidence usage is recorded in node provenance. `expand_graph` gains
+  an optional `evidence_source` kwarg (backward-compatible).
 - Graph cards (`graph_card.json` authoritative + `.md` rendered):
   auto-generated after every graph-mutating stage; idempotent when
   unchanged, revision + delta history on expansion/merges/material
